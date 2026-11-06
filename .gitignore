@@ -1,0 +1,11 @@
+build/
+SESSION_GUIDE.md
+*.xcodeproj/
+.DS_Store
+.claude/settings.local.json
+docs/.task-tracker.tsv.lock
+docs/task-tracker.tsv
+docs/task-tracker.meta.json
+docs/track-agent-runs.jsonl
+docs/.*.lock
+brand/__pycache__/

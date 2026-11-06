@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build and test
+    # GitHub's Xcode 27 runner: macOS 27 and the Xcode the app is built with. Tests never touch
+    # real agents, servers or files (the host app skips its startup under XCTest).
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Generate the project
+        run: brew install xcodegen && xcodegen generate
+      - name: Test without signing
+        run: |
+          set -o pipefail
+          xcodebuild test -project Taki.xcodeproj -scheme Taki -destination 'platform=macOS' \
+            -skipPackagePluginValidation -skipMacroValidation CODE_SIGNING_ALLOWED=NO | tail -40
+      - name: Release build without signing
+        run: |
+          set -o pipefail
+          xcodebuild -project Taki.xcodeproj -scheme Taki -configuration Release -destination 'platform=macOS' \
+            -skipPackagePluginValidation -skipMacroValidation CODE_SIGNING_ALLOWED=NO build | tail -20
