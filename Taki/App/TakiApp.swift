@@ -1,10 +1,5 @@
 import AppKit
-import KeyboardShortcuts
 import SwiftUI
-
-extension KeyboardShortcuts.Name {
-    static let palette = Self("palette", default: .init(.space, modifiers: [.option]))
-}
 
 @main
 struct TakiApp: App {
@@ -21,7 +16,6 @@ struct TakiApp: App {
         .defaultSize(width: 1460, height: 900)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("New chat") { delegate.model.newChatInLastFolder() }.keyboardShortcut("n")
                 Button("New terminal tab") { delegate.model.newTerminalTab() }.keyboardShortcut("t")
                 Button("New Claude Code tab") { delegate.model.newTerminal(.claude, folder: delegate.model.currentTerminalFolder) }
                 .keyboardShortcut("t", modifiers: [.command, .shift])
@@ -52,34 +46,16 @@ struct TakiApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = AppModel()
-    private var statusItem: NSStatusItem?
-    private let popover = NSPopover()
-    private var palette: PaletteWindow?
 
     func applicationDidFinishLaunching(_ note: Notification) {
         Appearance.apply()
         signal(SIGPIPE, SIG_IGN)     // a chat that dies mid-write must not take Taki down with it
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let button = item.button {
-            button.image = NSImage(systemSymbolName: "water.waves", accessibilityDescription: "Taki")
-            button.image?.isTemplate = true
-            button.target = self
-            button.action = #selector(statusClicked(_:))
-            button.sendAction(on: [.leftMouseUp, .rightMouseUp])
-        }
-        statusItem = item
-        popover.behavior = .transient
-        popover.contentSize = NSSize(width: MenuPanel.width, height: 760)
-        Appearance.onChange = { [weak self] in self?.popover.appearance = NSApp.appearance }
-        popover.appearance = NSApp.appearance
-        let host = NSHostingController(rootView: MenuPanel(openMain: { [weak self] in self?.openMain() }).environment(model))
-        host.sizingOptions = .preferredContentSize       // the popover follows the panel's real size
-        popover.contentViewController = host
-        KeyboardShortcuts.onKeyUp(for: .palette) { [weak self] in self?.togglePalette() }
-        Notifier.shared.requestOnce()
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    /// Taki Pro lives on in the menu bar when its window closes; the free edition has no menu bar
+    /// item, so closing its window quits it.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { !Edition.isPro }
 
     /// Clicking the Dock icon with no window open brings the window back.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows: Bool) -> Bool {
@@ -100,34 +76,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ note: Notification) {
         model.flushTerminalSave()                    // the last second of tab changes is not lost
-        model.runner.stopAll()
-        for chat in model.chats { chat.stop() }
     }
 
-    @objc private func statusClicked(_ sender: NSStatusBarButton) {
-        if NSApp.currentEvent?.type == .rightMouseUp {
-            let menu = NSMenu()
-            menu.addItem(withTitle: "Open Taki", action: #selector(openMainAction), keyEquivalent: "o").target = self
-            menu.addItem(withTitle: model.paused ? "Resume updates" : "Pause updates",
-                         action: #selector(togglePause), keyEquivalent: "").target = self
-            menu.addItem(.separator())
-            menu.addItem(withTitle: "Quit Taki", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
-            statusItem?.menu = menu
-            statusItem?.button?.performClick(nil)
-            statusItem?.menu = nil
-            return
-        }
-        if popover.isShown { popover.performClose(nil) } else {
-            popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
-        }
-    }
-
-    @objc private func openMainAction() { openMain() }
-    @objc private func togglePause() { model.paused.toggle() }
 
     func openMain() {
-        popover.performClose(nil)
         NSApp.activate()
         if let w = NSApp.windows.first(where: { $0.identifier?.rawValue == "main" }) {
             w.makeKeyAndOrderFront(nil)
@@ -136,12 +88,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func togglePalette() {
-        if let p = palette, p.isVisible { p.close(); return }
-        let p = PaletteWindow(model: model) { [weak self] in self?.openMain() }
-        palette = p
-        p.present()
-    }
 }
 
 /// Light, dark, or follow the Mac (default). Applied to the app, its windows and the menu bar panel.

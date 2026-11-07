@@ -28,13 +28,8 @@ struct MainView: View {
     @ViewBuilder private var detail: some View {
         switch model.section {
         case .agents: AgentsView()
-        case .cleanup: CleanupView()
         case .terminals: TerminalsView()
         case .settings: SettingsView()
-        case let .workspace(id):
-            if model.workspaces.contains(where: { $0.id == id }) { WorkspaceView(workspaceID: id) } else { AgentsView() }
-        case let .chat(id):
-            if let chat = model.chats.first(where: { $0.id == id }) { ChatView(chat: chat) } else { AgentsView() }
         }
     }
 }
@@ -59,21 +54,6 @@ struct Sidebar: View {
                         trailing: model.agents.isEmpty ? nil : "\(model.agents.count) live", trailingColor: Theme.busy)
                     row(.terminals, icon: "terminal", title: "Terminals",
                         trailing: model.terminals.isEmpty ? nil : "\(model.terminals.count)")
-                    row(.cleanup, icon: "shippingbox", title: "Clean up",
-                        trailing: model.cleanup.totalBytes > 0 ? Format.bytesText(model.cleanup.totalBytes) : nil)
-
-                    if !model.chats.isEmpty {
-                        header("Chats", open: $showChats) { model.newChatInLastFolder() }
-                        if showChats { ForEach(model.chats) { chat in
-                            row(.chat(chat.id), icon: "bubble.left", title: chat.title,
-                                dot: chat.state == .working ? Theme.busy : chat.state == .waiting ? Theme.link : nil)
-                                .contextMenu {
-                                    Button("Continue in Claude Code") { model.continueInClaudeCode(chat) }
-                                        .disabled(chat.sessionID == nil)
-                                    Button("Close chat", role: .destructive) { model.closeChat(chat) }
-                                }
-                        } }
-                    }
 
                     if !model.terminals.isEmpty {
                         header("Terminals", open: $showTerminals) { model.newTerminalTab() }
@@ -103,40 +83,6 @@ struct Sidebar: View {
                         } }
                     }
 
-                    header("Workspaces", open: $showWorkspaces) { addWorkspaces() }
-                    if showWorkspaces && model.workspaces.count >= Self.filterFrom {
-                        FieldBox {
-                            HStack(spacing: 6) {
-                                Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(Theme.tertiary)
-                                TextField("Filter", text: $search).textFieldStyle(.plain).font(.system(size: 13))
-                            }
-                        }
-                        .padding(.horizontal, 4).padding(.bottom, 4)
-                    }
-                    if showWorkspaces { ForEach(sortedWorkspaces) { ws in
-                        Button { model.section = .workspace(ws.id) } label: {
-                            HStack(spacing: 12) {
-                                WorkspaceBadge(symbol: ws.iconOverride ?? model.facts[ws.id]?.symbol ?? "folder", name: ws.name,
-                                               logo: model.logo(of: ws))
-                                Text(ws.name).lineLimit(1).truncationMode(.middle)
-                                Spacer()
-                                if model.isLive(ws) { StatusDot(color: Theme.live) }
-                            }
-                            .sidebarRow(selected: model.section == .workspace(ws.id))
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button("Start all") { model.startAll(ws) }
-                            Button("Stop all") { model.stopAll(ws) }
-                            Button("New chat here") { _ = model.newChat(folder: ws.folderURL) }
-                            Button("New terminal here") { model.newTerminal(.shell, folder: ws.folder, name: ws.name) }
-                        }
-                    } }
-                    if model.workspaces.isEmpty && showWorkspaces {
-                        Text("Projects with an agent, server or container running appear here by themselves.")
-                            .font(.system(size: 13)).foregroundStyle(Theme.tertiary).fixedSize(horizontal: false, vertical: true)
-                            .padding(.horizontal, 12).padding(.vertical, 4)
-                    }
 
                     // Servers that belong to no workspace (the rest show inside their workspace).
                     let ext = model.unclaimedServers
@@ -156,35 +102,16 @@ struct Sidebar: View {
                             .help("Open http://localhost:\(s.port)")
                         } }
                     }
-                    if !model.containers.isEmpty {
-                        header("Docker", open: $showDocker, add: nil)
-                        if showDocker {
-                            let groups = Dictionary(grouping: model.containers) { $0.project ?? $0.name }
-                            ForEach(groups.keys.sorted(), id: \.self) { project in
-                                let items = groups[project] ?? []
-                                DockerProjectRow(project: project, containers: items)
-                            }
-                        }
-                    }
                 }
                 .padding(.top, WindowChrome.buttonsBottom - MainView.panelInset + WindowChrome.rowsGap)   // clears the window buttons
             }
+            UpgradeCard().padding(.bottom, 8)
             row(.settings, icon: "gearshape", title: "Settings")
                 .padding(.bottom, 4)
         }
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
         .font(.system(size: 15))
-    }
-
-    /// Live workspaces first, then by name; the filter narrows by name or folder.
-    private var sortedWorkspaces: [Workspace] {
-        model.workspaces
-            .filter { search.isEmpty || $0.name.localizedCaseInsensitiveContains(search) || $0.folder.localizedCaseInsensitiveContains(search) }
-            .sorted { a, b in
-                let la = model.isLive(a), lb = model.isLive(b)
-                return la != lb ? la : a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
-            }
     }
 
     private func open(port: Int) {
@@ -211,54 +138,8 @@ struct Sidebar: View {
         SectionHeader(title: title, open: open, add: add)
     }
 
-    private func addWorkspaces() {
-        for url in FolderPicker.choose(prompt: "Add workspace", multiple: true) {
-            let ws = model.addWorkspace(folder: url)
-            model.section = .workspace(ws.id)
-        }
-    }
 }
 
-/// A Docker compose project in the sidebar: its containers fold out under it.
-struct DockerProjectRow: View {
-    let project: String
-    let containers: [DockerContainer]
-    @State private var open = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Button { withAnimation(.easeOut(duration: 0.18)) { open.toggle() } } label: {
-                HStack(spacing: 12) {
-                    WorkspaceBadge(symbol: "shippingbox.fill", name: project, logo: "docker")
-                    Text(project).lineLimit(1)
-                    Spacer()
-                    Text("\(containers.count)").font(.system(size: 14)).foregroundStyle(Theme.secondary)
-                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(Theme.tertiary)
-                        .rotationEffect(.degrees(open ? 90 : 0))
-                }
-                .sidebarRow(selected: false)
-            }
-            .buttonStyle(.plain)
-            if open {
-                ForEach(containers) { c in
-                    HStack(spacing: 10) {
-                        StatusDot(color: c.healthy ? Theme.live : Theme.danger)
-                        Text(c.shortName).font(.system(size: 14)).lineLimit(1)
-                        Spacer()
-                        if let p = c.ports.first {
-                            Button { if let u = URL(string: "http://localhost:\(p)") { NSWorkspace.shared.open(u) } } label: {
-                                Text(verbatim: ":\(p)").font(.system(size: 13).monospacedDigit()).foregroundStyle(Theme.secondary)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.leading, 30).padding(.trailing, 12).padding(.vertical, 4)
-                    .help("\(c.image) · \(c.status)")
-                }
-            }
-        }
-    }
-}
 
 struct SectionHeader: View {
     let title: String

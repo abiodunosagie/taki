@@ -4,6 +4,12 @@ import Foundation
 /// and remembering which Claude session each Claude tab holds.
 extension AppModel {
     func newTerminal(folder: String, command: String? = nil, title: String? = nil) {
+        // The free edition keeps two tabs open at once; the Terminals screen explains why.
+        guard terminals.count < Edition.maxTerminals else {
+            tabLimitReached = true
+            section = .terminals
+            return
+        }
         let tab = TerminalTab(title: title ?? TabKind(command: command).title(for: (folder as NSString).lastPathComponent),
                               folder: folder, command: command)
         if let i = terminals.firstIndex(where: { $0.id == selectedTerminal }) {
@@ -120,7 +126,7 @@ extension AppModel {
     var quitWarning: String? {
         let parents = ProcessScanner.parentMap()
         let tabs = terminals.filter { TerminalRegistry.shared.isBusy($0.id, parents: parents) }.count
-        let chatsBusy = chats.filter { $0.state == .working || $0.state == .waiting }.count
+        let chatsBusy = 0
         var parts: [String] = []
         if tabs > 0 { parts.append(Format.plural(tabs, "terminal") + " still running something") }
         if chatsBusy > 0 { parts.append(Format.plural(chatsBusy, "chat") + " still working") }

@@ -152,9 +152,11 @@ struct SidebarPanel: ViewModifier {
 }
 
 extension View {
-    /// The system's Liquid Glass on a pill or round button, lit as it is pressed.
-    func glassPill() -> some View { glassEffect(.regular.interactive(), in: .capsule) }
-    func glassCircle() -> some View { glassEffect(.regular.interactive(), in: .circle) }
+    /// The system's Liquid Glass on a pill or round button. Not `.interactive()`: that variant
+    /// squashes and stretches the glass under the pointer, which on small round buttons reads as a
+    /// stretched oval (owner, 2026-11-07). Pressed feedback comes from the button style instead.
+    func glassPill() -> some View { glassEffect(.regular, in: .capsule) }
+    func glassCircle() -> some View { glassEffect(.regular, in: .circle) }
 
     func sidebarPanel() -> some View { modifier(SidebarPanel()) }
 

@@ -13,6 +13,7 @@ struct TerminalsView: View {
     var body: some View {
         VStack(spacing: 10) {
             toolbar
+            if model.tabLimitReached { tabLimitNote }
             if let tab = model.terminals.first(where: { $0.id == model.selectedTerminal }) ?? model.terminals.first {
                 TerminalHost(tab: tab, model: model)
                     .id(tab.id)
@@ -102,6 +103,23 @@ struct TerminalsView: View {
         }
     }
 
+    /// Shown when the free edition's tab limit stopped a new tab. Close a tab, or get Taki Pro.
+    private var tabLimitNote: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "rectangle.stack").foregroundStyle(Theme.secondary)
+            Text("Taki keeps \(Edition.maxTerminals) tabs open at once. Close one, or get Taki Pro for as many as you like.")
+                .font(.system(size: 13)).fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
+            LinkButton("See Taki Pro") { if let url = URL(string: Edition.upgradeURL) { NSWorkspace.shared.open(url) } }
+            Button { model.tabLimitReached = false } label: {
+                Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.secondary)
+            }
+            .buttonStyle(.plain).help("Dismiss")
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .tileSurface(radius: 12)
+    }
+
     private var newMenu: some View {
         Menu {
             let folder = model.currentTerminalFolder
@@ -109,16 +127,6 @@ struct TerminalsView: View {
             Button("Shell in \(name)") { model.newTerminal(.shell, folder: folder) }
             Button("Claude Code in \(name)") { model.newTerminal(.claude, folder: folder) }
             Button("Codex in \(name)") { model.newTerminal(.codex, folder: folder) }
-            if !model.workspaces.isEmpty {
-                Divider()
-                ForEach(model.workspaces) { ws in
-                    Menu(ws.name) {
-                        Button("Shell") { model.newTerminal(.shell, folder: ws.folder, name: ws.name) }
-                        Button("Claude Code") { model.newTerminal(.claude, folder: ws.folder, name: ws.name) }
-                        Button("Codex") { model.newTerminal(.codex, folder: ws.folder, name: ws.name) }
-                    }
-                }
-            }
         } label: {
             Image(systemName: "plus").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.primary)
                 .frame(width: 34, height: 34)

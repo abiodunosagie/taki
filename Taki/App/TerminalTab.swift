@@ -67,7 +67,7 @@ struct TerminalTab: Identifiable, Equatable, Codable {
 /// Saves the open terminal tabs. On the next launch shells reopen in the same folder and Claude
 /// tabs pick up their own session (`claude --resume <id>`), or their folder's latest one.
 enum TerminalStore {
-    static var url: URL { WorkspaceStore.url.deletingLastPathComponent().appending(path: "terminals.json") }
+    static var url: URL { AppFiles.folder.appending(path: "terminals.json") }
 
     static func load() -> [TerminalTab] {
         guard let d = try? Data(contentsOf: url), let saved = try? JSONDecoder().decode([TerminalTab].self, from: d) else { return [] }

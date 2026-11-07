@@ -1,4 +1,3 @@
-import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
 
@@ -10,6 +9,7 @@ struct SettingsView: View {
     @AppStorage("editor") private var editor = EditorChoice.finder.rawValue
     @AppStorage("notifyServers") private var notifyServers = true
     @AppStorage("notifyLimits") private var notifyLimits = true
+    @AppStorage("notifyOverlaps") private var notifyOverlaps = true
     @AppStorage("appearance") private var appearance = "system"
     @AppStorage("shortLinks") private var shortLinks = true
     @State private var loginItem = SMAppService.mainApp.status == .enabled
@@ -30,30 +30,6 @@ struct SettingsView: View {
                                 }
                                 .labelsHidden().fixedSize()
                             }
-                            divider
-                            row("Permissions", "Your Claude Code settings, hooks, skills and CLAUDE.md always apply.") {
-                                Picker("", selection: $permissionMode) {
-                                    Text("My Claude Code setting").tag("")
-                                    Text("Ask before edits and commands").tag("default")
-                                    Text("Allow edits, ask for commands").tag("acceptEdits")
-                                    Text("Plan only").tag("plan")
-                                    Text("Never ask").tag("bypassPermissions")
-                                }
-                                .labelsHidden().fixedSize()
-                            }
-                        }
-                        Card("Workspaces", fill: false) {
-                            row("Short links", "name.localhost with no port. Only this Mac can open them.") {
-                                Toggle("", isOn: $shortLinks).labelsHidden().toggleStyle(.switch).tint(Theme.live)
-                                    .onChange(of: shortLinks) { _, on in on ? LocalProxy.shared.start() : LocalProxy.shared.stop() }
-                            }
-                            divider
-                            row("Folder opens in", "For \"Open folder\" in a workspace.") {
-                                Picker("", selection: $editor) {
-                                    ForEach(EditorChoice.allCases, id: \.rawValue) { Text($0.name).tag($0.rawValue) }
-                                }
-                                .labelsHidden().fixedSize()
-                            }
                         }
                     }
                     VStack(spacing: Theme.gutter) {
@@ -67,21 +43,8 @@ struct SettingsView: View {
                                 .pickerStyle(.segmented).labelsHidden().fixedSize()
                                 .onChange(of: appearance) { Appearance.apply() }
                             }
-                            divider
-                            row("Command palette", "Open, restart or stop anything from any app.") {
-                                KeyboardShortcuts.Recorder("", name: .palette)
-                            }
                         }
-                        Card("Alerts", fill: false) {
-                            row("Server left running", "Once, after two hours.") {
-                                Toggle("", isOn: $notifyServers).labelsHidden().toggleStyle(.switch).tint(Theme.live)
-                            }
-                            divider
-                            row("Claude limit nearly used", "Once per window, at 90%.") {
-                                Toggle("", isOn: $notifyLimits).labelsHidden().toggleStyle(.switch).tint(Theme.live)
-                            }
-                        }
-                        Card("Taki", fill: false) {
+                        Card(Edition.name, fill: false) {
                             row("Open at login", "No account and no analytics. Nothing leaves this Mac.") {
                                 Toggle("", isOn: $loginItem).labelsHidden().toggleStyle(.switch).tint(Theme.live)
                                     .onChange(of: loginItem) { _, on in

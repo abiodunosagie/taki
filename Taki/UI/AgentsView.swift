@@ -17,17 +17,17 @@ struct AgentsView: View {
                     }
                     Spacer()
                     Menu {
-                        Button("Chat with Claude...") { newChat() }
                         Button("Claude Code in a new tab") { model.newTerminal(.claude, folder: model.defaultFolder) }
                         Button("Codex in a new tab") { model.newTerminal(.codex, folder: model.defaultFolder) }
                         Button("Shell in a new tab") { model.newTerminalTab() }
                     } label: {
                         Text("New").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.primary)
                             .padding(.horizontal, 16).padding(.vertical, 8)
-                    } primaryAction: { newChat() }
+                    } primaryAction: { primaryNew() }
                     .menuStyle(.button).buttonStyle(.plain)
                     .glassPill().fixedSize()
-                    .help("A new chat. Hold for Claude Code, Codex or a shell in a tab.")
+                    .help(Edition.isPro ? "A new chat. Hold for Claude Code, Codex or a shell in a tab."
+                                        : "Claude Code in a new tab. Hold for Codex or a shell.")
                 }
                 .frame(height: 44)
 
@@ -77,12 +77,10 @@ struct AgentsView: View {
                    caption: "Last 7 days", size: 32)
     }
 
-    private func newChat() {
-        if let url = FolderPicker.choose(prompt: "Chat here", message: "Pick the folder Claude should work in.",
-                                         start: model.defaultFolder).first {
-            _ = model.newChat(folder: url)
-        }
+    private func primaryNew() {
+        model.newTerminal(.claude, folder: model.defaultFolder)
     }
+
 }
 
 struct AgentRow: View {
@@ -98,7 +96,7 @@ struct AgentRow: View {
             }
             Spacer(minLength: 12)
             if agent.contextTokens > 0 {
-                ContextMeter(share: ChatSession.contextShare(agent.contextTokens))
+                ContextMeter(share: ContextWindow.share(agent.contextTokens))
             }
             AgentButtons(agent: agent)
         }
@@ -140,6 +138,7 @@ struct LimitsCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.system(size: 15, weight: .medium))
                 Text(reset.map { "Resets \(Format.clock($0))" } ?? "Not read yet").font(.system(size: 13)).foregroundStyle(Theme.secondary)
+                    .lineLimit(1).fixedSize()
             }
         }
     }

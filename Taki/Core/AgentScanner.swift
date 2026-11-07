@@ -46,6 +46,14 @@ struct LiveAgent: Identifiable, Equatable, Sendable {
     }
 }
 
+/// How full a Claude context is: the 1M window once past 200K tokens, else 200K.
+enum ContextWindow {
+    static func share(_ tokens: Int) -> Double {
+        let window = tokens > 200_000 ? 1_000_000.0 : 200_000.0
+        return min(1, Double(tokens) / window)
+    }
+}
+
 /// Reads live sessions. Claude Code writes `~/.claude/sessions/<pid>.json` for every running
 /// session (verified on 2.1.319: pid, sessionId, cwd, name, status busy/idle, startedAt,
 /// statusUpdatedAt). The transcript `~/.claude/projects/<slug>/<sessionId>.jsonl` gives the task
@@ -154,10 +162,13 @@ enum AgentScanner {
     static let votedPaths = 40
     private static let home = FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL.path
 
-    /// First real user prompt (the task) from the head of the file, latest context size from its tail.
-    static func transcriptInfo(sessionID: String, cwd: String) -> (task: String?, context: Int, project: String?) {
+
+    /// First real user prompt (the task) from the head of the file, latest context size from its tail,
+    /// and the files it edited inside the overlap window.
+    static func transcriptInfo(sessionID: String, cwd: String, now: Date = Date())
+        -> (task: String?, context: Int, project: String?, edits: [String: Date]) {
         let url = transcriptURL(sessionID: sessionID, cwd: cwd)
-        guard let h = try? FileHandle(forReadingFrom: url) else { return (nil, 0, nil) }
+        guard let h = try? FileHandle(forReadingFrom: url) else { return (nil, 0, nil, [:]) }
         defer { try? h.close() }
         let head = (try? h.read(upToCount: 256_000)) ?? Data()
         var task: String?
@@ -178,6 +189,7 @@ enum AgentScanner {
         let cwdRoot = ProjectRoot.of(cwd)
         var projectVotes: [String: Int] = [:]
         var touched = cwdRoot == nil ? 0 : Self.votedPaths
+        let pastWindow = true
         if let size = try? h.seekToEnd(), size > 0 {
             let start = size > 400_000 ? size - 400_000 : 0
             try? h.seek(toOffset: start)
@@ -204,10 +216,11 @@ enum AgentScanner {
                         }
                     }
                 }
-                if aiTitle != nil && context > 0 && touched >= Self.votedPaths { break }
+                // Newest first, so once a line is older than the window no later line can be newer.
+                if aiTitle != nil && context > 0 && touched >= Self.votedPaths && pastWindow { break }
             }
         }
         let project = cwdRoot ?? projectVotes.max { $0.value < $1.value }?.key
-        return (aiTitle ?? task, context, project)
+        return (aiTitle ?? task, context, project, [:])
     }
 }
