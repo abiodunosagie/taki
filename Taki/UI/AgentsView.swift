@@ -17,17 +17,17 @@ struct AgentsView: View {
                     }
                     Spacer()
                     Menu {
-                        Button("Claude Code in a new tab") { model.newTerminal(.claude, folder: model.defaultFolder) }
-                        Button("Codex in a new tab") { model.newTerminal(.codex, folder: model.defaultFolder) }
-                        Button("Shell in a new tab") { model.newTerminalTab() }
+                        ForEach(TabKind.menuKinds, id: \.self) { kind in
+                            Button("\(kind.menuName) in a folder...") { model.newTerminalInChosenFolder(kind) }
+                        }
                     } label: {
                         Text("New").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.primary)
                             .padding(.horizontal, 16).padding(.vertical, 8)
-                    } primaryAction: { primaryNew() }
-                    .menuStyle(.button).buttonStyle(.plain)
+                    }
+                    .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain)
                     .glassPill().fixedSize()
-                    .help(Edition.isPro ? "A new chat. Hold for Claude Code, Codex or a shell in a tab."
-                                        : "Claude Code in a new tab. Hold for Codex or a shell.")
+                    .help(Edition.isPro ? "A new chat, or Claude Code, Codex or a shell in a tab."
+                                        : "Claude Code, Codex or a shell in a new tab.")
                 }
                 .frame(height: 44)
 
@@ -63,6 +63,7 @@ struct AgentsView: View {
             }
             .screenPadding()
         }
+        .scrollEdgeEffectStyle(.soft, for: .top)   // cards fade at the window's top edge, never cut hard
     }
 
     /// The three cards on top share one height, so their titles and contents line up.
@@ -75,10 +76,6 @@ struct AgentsView: View {
     private var tokensWeek: some View {
         StatNumber(value: model.usageReady ? Format.tokens(model.usage.claudeTokensWeek + model.usage.codexTokensWeek) : "...",
                    caption: "Last 7 days", size: 32)
-    }
-
-    private func primaryNew() {
-        model.newTerminal(.claude, folder: model.defaultFolder)
     }
 
 }

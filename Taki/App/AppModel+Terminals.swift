@@ -38,6 +38,42 @@ extension AppModel {
     /// A new shell tab in the current tab's folder (Cmd-T).
     func newTerminalTab() { newTerminal(.shell, folder: currentTerminalFolder) }
 
+    /// Asks for a folder, then opens a tab of `kind` there. Nothing happens on Cancel.
+    func newTerminalInChosenFolder(_ kind: TabKind) {
+        // The free edition's tab limit first, so nobody picks a folder for a tab that cannot open.
+        guard terminals.count < Edition.maxTerminals else { tabLimitReached = true; section = .terminals; return }
+        guard let url = FolderPicker.choose(prompt: "Open here", message: "Pick the folder this tab starts in.",
+                                            start: currentTerminalFolder).first else { return }
+        newTerminal(kind, folder: url.path)
+    }
+
+    /// The other projects the + menu offers: those of open tabs and live agents, minus the
+    /// current folder and anything the menu already lists (workspaces).
+    var recentTerminalFolders: [String] {
+        let listed: [String] = []
+        return Self.recentFolders(
+            tabFolders: terminals.reversed().map { TerminalRegistry.shared.currentFolder(of: $0.id) ?? $0.folder },
+            agentFolders: agents.map { $0.project ?? $0.cwd },
+            excluding: Set(listed + [currentTerminalFolder]),
+            root: ProjectRoot.of)
+    }
+
+    /// Tab folders first (newest tab first), then agent folders, each reduced to its project root,
+    /// each once, never the home folder or an excluded one, at most `limit`.
+    static func recentFolders(tabFolders: [String], agentFolders: [String], excluding: Set<String>,
+                              home: String = NSHomeDirectory(), limit: Int = 6,
+                              root: (String) -> String?) -> [String] {
+        let skip = Set((excluding + [home]).map { root($0) ?? $0 })
+        var out: [String] = []
+        for folder in tabFolders + agentFolders where !folder.isEmpty {
+            let r = root(folder) ?? folder
+            guard !skip.contains(r), !out.contains(r) else { continue }
+            out.append(r)
+            if out.count == limit { break }
+        }
+        return out
+    }
+
     /// The same kind of tab in the same folder. A Claude tab starts a new conversation there.
     func duplicateTerminal(_ id: UUID) {
         guard let t = terminals.first(where: { $0.id == id }) else { return }

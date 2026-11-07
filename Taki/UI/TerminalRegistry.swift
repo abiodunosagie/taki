@@ -11,16 +11,21 @@ final class TerminalRegistry {
 
     func view(for tab: TerminalTab, model: AppModel) -> LocalProcessTerminalView {
         if let v = views[tab.id] { return v }
-        let v = LocalProcessTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
+        let v = TakiTerminalView(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
         v.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
         v.nativeBackgroundColor = Theme.terminalNSBackground
         v.nativeForegroundColor = NSColor(white: 0.92, alpha: 1)
         v.caretColor = NSColor(srgbRed: 0.51, green: 0.66, blue: 1, alpha: 1)
+        let id = tab.id
+        v.currentFolder = { [weak self] in self?.folders[id] }
         let delegate = TerminalDelegate(id: tab.id, model: model)
         delegates[tab.id] = delegate
         v.processDelegate = delegate
         var env = ShellEnvironment.load()
         env["TERM_PROGRAM"] = "Taki"
+        // SwiftTerm supports synchronized output (DEC mode 2026), which Claude Code does not
+        // detect in a terminal it does not know; with it each redraw lands at once, no flicker.
+        env["CLAUDE_CODE_FORCE_SYNC_OUTPUT"] = env["CLAUDE_CODE_FORCE_SYNC_OUTPUT"] ?? "1"
         let shell = env["SHELL"] ?? "/bin/zsh"
         var args = ["-l"]
         // A command tab runs its command, then stays open as a normal shell when it ends.
@@ -31,6 +36,9 @@ final class TerminalRegistry {
         folders[tab.id] = tab.folder
         return v
     }
+
+    /// The tab's terminal if it has been opened (for dictation and other input from the toolbar).
+    func existingView(_ id: UUID) -> TakiTerminalView? { views[id] as? TakiTerminalView }
 
     func remove(_ id: UUID) {
         views[id]?.terminate()

@@ -7,6 +7,7 @@ struct SettingsView: View {
     @AppStorage("chatModel") private var chatModel = ""
     @AppStorage("permissionMode") private var permissionMode = ""
     @AppStorage("editor") private var editor = EditorChoice.finder.rawValue
+    @AppStorage(PushToTalk.enabledKey) private var holdToDictate = true
     @AppStorage("notifyServers") private var notifyServers = true
     @AppStorage("notifyLimits") private var notifyLimits = true
     @AppStorage("notifyOverlaps") private var notifyOverlaps = true
@@ -31,6 +32,11 @@ struct SettingsView: View {
                                     Text("Haiku").tag("haiku")
                                 }
                                 .labelsHidden().fixedSize()
+                            }
+                        }
+                        Card("Terminals", fill: false) {
+                            row("Hold Right Option to dictate", "Speak while holding it; Taki types what you said into the open tab. The mic button in Terminals works either way. Recognized on this Mac; the first use asks for the microphone and downloads the speech model.") {
+                                Toggle("", isOn: $holdToDictate).labelsHidden().toggleStyle(.switch).tint(Theme.live)
                             }
                         }
                     }
@@ -67,6 +73,7 @@ struct SettingsView: View {
             }
             .screenPadding()
         }
+        .scrollEdgeEffectStyle(.soft, for: .top)
     }
 
     private var divider: some View { Divider().opacity(0.35) }

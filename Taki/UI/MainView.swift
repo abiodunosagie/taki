@@ -56,7 +56,11 @@ struct Sidebar: View {
                         trailing: model.terminals.isEmpty ? nil : "\(model.terminals.count)")
 
                     if !model.terminals.isEmpty {
-                        header("Terminals", open: $showTerminals) { model.newTerminalTab() }
+                        SectionHeader(title: "Terminals", open: $showTerminals, trailing: {
+                            NewTerminalMenu { Image(systemName: "plus").font(.system(size: 13, weight: .medium)) }
+                                .help("New tab: pick a folder and a shell or an agent")
+                                .accessibilityLabel("New terminal tab")
+                        })
                         if showTerminals { ForEach(model.terminals.prefix(Self.maxTabsListed)) { tab in
                             Button {
                                 model.selectedTerminal = tab.id
@@ -103,8 +107,11 @@ struct Sidebar: View {
                         } }
                     }
                 }
-                .padding(.top, WindowChrome.buttonsBottom - MainView.panelInset + WindowChrome.rowsGap)   // clears the window buttons
             }
+            // The scroll area starts below the window buttons, so rows never slide up behind them;
+            // the soft edge fades a row out as it reaches the top instead of cutting it hard.
+            .scrollEdgeEffectStyle(.soft, for: .top)
+            .padding(.top, WindowChrome.buttonsBottom - MainView.panelInset + WindowChrome.rowsGap)
             UpgradeCard().padding(.bottom, 8)
             row(.settings, icon: "gearshape", title: "Settings")
                 .padding(.bottom, 4)
@@ -141,11 +148,17 @@ struct Sidebar: View {
 }
 
 
-struct SectionHeader: View {
+struct SectionHeader<Trailing: View>: View {
     let title: String
     @Binding var open: Bool
-    let add: (() -> Void)?
+    let trailing: Trailing
     @State private var hover = false
+
+    init(title: String, open: Binding<Bool>, @ViewBuilder trailing: () -> Trailing) {
+        self.title = title
+        self._open = open
+        self.trailing = trailing()
+    }
 
     var body: some View {
         HStack(spacing: 6) {
@@ -160,13 +173,28 @@ struct SectionHeader: View {
             }
             .buttonStyle(.plain)
             Spacer()
-            if let add {
-                Button(action: add) { Image(systemName: "plus").font(.system(size: 13, weight: .medium)) }
-                    .buttonStyle(.plain).help("Add")
-            }
+            trailing
         }
         .sidebarHeader()
         .onHover { hover = $0 }
+    }
+}
+
+extension SectionHeader where Trailing == HeaderAddButton {
+    /// A header whose + runs one action (or shows no + when `add` is nil).
+    init(title: String, open: Binding<Bool>, add: (() -> Void)?) {
+        self.init(title: title, open: open, trailing: { HeaderAddButton(add: add) })
+    }
+}
+
+/// The plain + on a sidebar header that runs one action.
+struct HeaderAddButton: View {
+    let add: (() -> Void)?
+    var body: some View {
+        if let add {
+            Button(action: add) { Image(systemName: "plus").font(.system(size: 13, weight: .medium)) }
+                .buttonStyle(.plain).help("Add")
+        }
     }
 }
 

@@ -1,9 +1,56 @@
 import Foundation
 
+/// The other coding-agent CLIs a tab can start. Each runs its own binary with no arguments;
+/// the menus offer only the ones installed on this Mac.
+enum AgentCLI: String, CaseIterable {
+    case gemini, opencode, qwen, amp, crush, copilot, droid, cursorAgent = "cursor-agent", goose, aider
+
+    var binary: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .gemini: "Gemini CLI"
+        case .opencode: "opencode"
+        case .qwen: "Qwen Code"
+        case .amp: "Amp"
+        case .crush: "Crush"
+        case .copilot: "Copilot CLI"
+        case .droid: "Factory Droid"
+        case .cursorAgent: "Cursor Agent"
+        case .goose: "Goose"
+        case .aider: "Aider"
+        }
+    }
+
+    /// Short name for tab titles: "Gemini: taki".
+    var shortName: String {
+        switch self {
+        case .gemini: "Gemini"
+        case .qwen: "Qwen"
+        case .copilot: "Copilot"
+        case .droid: "Droid"
+        case .cursorAgent: "Cursor"
+        default: name
+        }
+    }
+
+    /// The installed ones, read from the login PATH and remembered for a minute so menus stay fast
+    /// and an agent installed while Taki runs still shows up.
+    static func installed(now: Date = Date()) -> [AgentCLI] {
+        if let c = cache.get(), now.timeIntervalSince(c.at) < 60 { return c.list }
+        let list = allCases.filter { ShellEnvironment.which($0.binary) != nil }
+        cache.set((list, now))
+        return list
+    }
+
+    private static let cache = LockedValue<(list: [AgentCLI], at: Date)?>(nil)
+}
+
 /// What a terminal tab runs. The command line for each kind is fixed here, so nothing else (a
 /// saved file, a title) ever decides what a tab executes.
-enum TabKind: Equatable {
+enum TabKind: Equatable, Hashable {
     case shell, claude, codex
+    case agent(AgentCLI)
 
     /// The command a new tab of this kind starts with (nil = the login shell).
     var command: String? {
@@ -11,6 +58,17 @@ enum TabKind: Equatable {
         case .shell: nil
         case .claude: "claude"
         case .codex: "codex"
+        case let .agent(a): a.binary
+        }
+    }
+
+    /// What menus call it: "Shell", "Claude Code", "Codex", "Gemini CLI".
+    var menuName: String {
+        switch self {
+        case .shell: "Shell"
+        case .claude: "Claude Code"
+        case .codex: "Codex"
+        case let .agent(a): a.name
         }
     }
 
@@ -20,12 +78,20 @@ enum TabKind: Equatable {
         case .shell: name
         case .claude: "Claude: \(name)"
         case .codex: "Codex: \(name)"
+        case let .agent(a): "\(a.shortName): \(name)"
         }
     }
 
+    /// Every kind a new-tab menu offers: shell, Claude Code, Codex, then installed agent CLIs.
+    static var menuKinds: [TabKind] { [.shell, .claude, .codex] + AgentCLI.installed().map { .agent($0) } }
+
     init(command: String?) {
-        if command?.hasPrefix("claude") == true { self = .claude }
-        else if command?.hasPrefix("codex") == true { self = .codex }
+        // The leading program name only ("claude; rm -rf ~" is still a Claude tab, and the command
+        // it runs is rebuilt from the kind, never taken from the saved text).
+        let word = String((command ?? "").prefix { $0.isLetter || $0.isNumber || $0 == "-" })
+        if word == "claude" { self = .claude }
+        else if word == "codex" { self = .codex }
+        else if let a = AgentCLI(rawValue: word) { self = .agent(a) }
         else { self = .shell }
     }
 }
@@ -41,7 +107,6 @@ struct TerminalTab: Identifiable, Equatable, Codable {
 
     var kind: TabKind { TabKind(command: command) }
     var isClaude: Bool { kind == .claude }
-    var isCodex: Bool { kind == .codex }
 
     init(title: String, folder: String, command: String?) {
         self.title = title
@@ -88,8 +153,8 @@ enum TerminalStore {
             case .shell:
                 t.command = nil
                 t.sessionID = nil
-            case .codex:
-                t.command = "codex"
+            case .codex, .agent:
+                t.command = t.kind.command
                 t.sessionID = nil
             case .claude:
                 if let sid = t.sessionID, AgentScanner.isSessionID(sid), resumedSessions.insert(sid).inserted {

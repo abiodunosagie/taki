@@ -48,12 +48,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let model: AppModel
 
     override init() {
+        ShellEnvironment.dropInheritedAgentMarkers()        // before any shell, chat or scan starts
         model = AppModel()
         super.init()
     }
 
     func applicationDidFinishLaunching(_ note: Notification) {
         Appearance.apply()
+        TakiTerminalView.installShiftReturn()
+        PushToTalk.shared.install()
+        DispatchQueue.global(qos: .utility).async {
+            TakiTerminalView.pruneDroppedImages()
+            _ = AgentCLI.installed()          // reads the login PATH once, off the main thread
+        }
         signal(SIGPIPE, SIG_IGN)     // a chat that dies mid-write must not take Taki down with it
         guard !TestHost.isActive else { return }
     }

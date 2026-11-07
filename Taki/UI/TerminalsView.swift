@@ -20,6 +20,7 @@ struct TerminalsView: View {
                     .padding(.horizontal, 12).padding(.vertical, 10)
                     .background(Theme.terminalBackground)
                     .clipShape(.rect(cornerRadius: 14, style: .continuous))
+                    .overlay(alignment: .bottom) { DictationStrip(dictation: PushToTalk.shared.dictation).padding(14) }
                     .onAppear { if model.selectedTerminal == nil { model.selectedTerminal = tab.id } }
             } else {
                 Color.clear.onAppear { model.newTerminalTab() }   // the screen is never an empty placeholder
@@ -65,6 +66,9 @@ struct TerminalsView: View {
             }
             newMenu
             Spacer()
+            DictateButton(dictation: PushToTalk.shared.dictation) {
+                PushToTalk.shared.toggle(into: current.flatMap { TerminalRegistry.shared.existingView($0.id) })
+            }
         }
     }
 
@@ -89,6 +93,8 @@ struct TerminalsView: View {
         }
         .buttonStyle(.plain)
         .popover(isPresented: $picking, arrowEdge: .bottom) { TabPicker(close: { picking = false }) }
+        .accessibilityLabel("Switch tab")
+        .accessibilityValue(current.map { model.displayTitle($0) } ?? "")
         .help("Every open terminal (Cmd-1 to Cmd-9, Cmd-Shift-[ and ])")
         .contextMenu {
             if let t = current {
@@ -114,30 +120,120 @@ struct TerminalsView: View {
             Button { model.tabLimitReached = false } label: {
                 Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.secondary)
             }
-            .buttonStyle(.plain).help("Dismiss")
+            .buttonStyle(.plain).help("Dismiss").accessibilityLabel("Dismiss")
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .tileSurface(radius: 12)
     }
 
     private var newMenu: some View {
-        Menu {
-            let folder = model.currentTerminalFolder
-            let name = (folder as NSString).lastPathComponent
-            Button("Shell in \(name)") { model.newTerminal(.shell, folder: folder) }
-            Button("Claude Code in \(name)") { model.newTerminal(.claude, folder: folder) }
-            Button("Codex in \(name)") { model.newTerminal(.codex, folder: folder) }
-        } label: {
+        NewTerminalMenu {
             Image(systemName: "plus").font(.system(size: 13, weight: .semibold)).foregroundStyle(Theme.primary)
                 .frame(width: 34, height: 34)
-        } primaryAction: {
-            model.newTerminalTab()
         }
-        .menuStyle(.button).buttonStyle(.plain)
         .tileSurface(radius: 12)
         .fixedSize()
-        .help("New tab (Cmd-T). Hold for Claude Code, Codex or another project.")
+        .help("New tab: pick a folder and a shell or an agent. Cmd-T opens a shell here.")
+        .accessibilityLabel("New tab")
     }
 
     private func shortPath(_ p: String) -> String { (p as NSString).abbreviatingWithTildeInPath }
+}
+
+/// The new-tab menu behind every terminal +. One click opens it: the current folder, a folder
+/// picked from disk, (Pro) workspaces and recent projects, each as a shell, Claude Code or Codex.
+/// Cmd-T stays the one-key shell in the current folder.
+struct NewTerminalMenu<Label: View>: View {
+    @Environment(AppModel.self) private var model
+    @ViewBuilder let label: Label
+
+    var body: some View {
+        Menu {
+            let folder = model.currentTerminalFolder
+            let kinds = TabKind.menuKinds
+            Section("Start in \((folder as NSString).lastPathComponent)") {
+                ForEach(kinds, id: \.self) { kind in Button(kind.menuName) { model.newTerminal(kind, folder: folder) } }
+            }
+            Menu("Choose a folder") {
+                ForEach(kinds, id: \.self) { kind in Button("\(kind.menuName) in a folder...") { model.newTerminalInChosenFolder(kind) } }
+            }
+            let recent = model.recentTerminalFolders
+            if !recent.isEmpty {
+                Section("Recent projects") {
+                    ForEach(recent, id: \.self) { kindMenu(($0 as NSString).lastPathComponent, folder: $0) }
+                }
+            }
+        } label: {
+            label
+        }
+        .menuStyle(.button).menuIndicator(.hidden).buttonStyle(.plain)
+    }
+
+    private func kindMenu(_ name: String, folder: String) -> some View {
+        Menu(name) {
+            ForEach(TabKind.menuKinds, id: \.self) { kind in
+                Button(kind.menuName) { model.newTerminal(kind, folder: folder, name: name) }
+            }
+        }
+    }
+}
+
+/// The mic in the Terminals toolbar: click to dictate into the open tab, click again to type it.
+/// Holding Right Option does the same without the mouse.
+struct DictateButton: View {
+    let dictation: VoiceDictation
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: dictation.isActive ? "mic.fill" : "mic")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundStyle(dictation.isActive ? Theme.live : Theme.primary)
+                .frame(width: 34, height: 34)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .tileSurface(radius: 12)
+        .help(dictation.isActive ? "Stop and type what you said" : "Dictate into this tab (or hold Right Option)")
+        .accessibilityLabel(dictation.isActive ? "Stop dictation" : "Dictate")
+    }
+}
+
+/// Shown over the terminal while dictating: what is heard so far, live, or why it could not start.
+struct DictationStrip: View {
+    let dictation: VoiceDictation
+
+    var body: some View {
+        Group {
+            switch dictation.state {
+            case .idle:
+                EmptyView()
+            case let .preparing(note):
+                strip(icon: "mic", tint: Theme.secondary, text: note + "...")
+            case .listening:
+                let heard = dictation.transcript.text
+                strip(icon: "waveform", tint: Theme.live, text: heard.isEmpty ? "Listening. Let go to type it." : heard)
+            case let .failed(message):
+                strip(icon: "mic.slash", tint: Theme.secondary, text: message, dismiss: { dictation.clearFailure() })
+            }
+        }
+        .animation(.easeOut(duration: 0.18), value: dictation.state)
+    }
+
+    private func strip(icon: String, tint: Color, text: String, dismiss: (() -> Void)? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Image(systemName: icon).symbolEffect(.variableColor.iterative, isActive: dictation.state == .listening)
+                .foregroundStyle(tint)
+            Text(text).font(.system(size: 13)).lineLimit(3).truncationMode(.head)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let dismiss {
+                Button(action: dismiss) { Image(systemName: "xmark").font(.system(size: 11, weight: .semibold)) }
+                    .buttonStyle(.plain).foregroundStyle(Theme.secondary).accessibilityLabel("Dismiss")
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .frame(maxWidth: 640)
+        .tileSurface(radius: 12)
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+    }
 }

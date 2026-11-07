@@ -6,6 +6,31 @@ import Foundation
 enum ShellEnvironment {
     private static let cache = LockedValue<[String: String]?>(nil)
 
+    /// Variables Claude Code puts into the processes it starts. When Taki itself was started from
+    /// inside a Claude Code session they reach Taki, and every tab and chat would inherit them:
+    /// Claude then treats itself as a child session and stops saving transcripts, and the parent
+    /// session's messaging token leaks into every shell. Only these session markers go; the
+    /// owner's own Claude settings (CLAUDE_CODE_USE_BEDROCK, CLAUDE_CODE_OAUTH_TOKEN, ...) stay.
+    static let inheritedAgentMarkers: Set<String> = [
+        "CLAUDECODE", "CLAUDE_PID", "CLAUDE_EFFORT", "AI_AGENT",
+        "CLAUDE_CODE_CHILD_SESSION", "CLAUDE_CODE_ENTRYPOINT", "CLAUDE_CODE_EXECPATH", "CLAUDE_CODE_SSE_PORT",
+        "CLAUDE_CODE_SESSION_ID", "CLAUDE_CODE_SESSION_ATTENDED", "CLAUDE_CODE_PLUGIN_DIRS",
+        "CLAUDE_CODE_MESSAGING_SOCKET", "CLAUDE_CODE_MESSAGING_TOKEN",
+    ]
+
+    /// Claude Code also sets GIT_EDITOR=true (an editor that does nothing) so git never opens one
+    /// under it; a shell in Taki must get the owner's editor back. A real editor setting stays.
+    static func isInheritedAgentMarker(_ key: String, value: String? = nil) -> Bool {
+        if key == "GIT_EDITOR" { return value == "true" }
+        return inheritedAgentMarkers.contains(key)
+    }
+
+    /// Removes inherited agent markers from Taki's own environment, once at launch and before
+    /// anything is spawned, so no child process (tab, chat, service, scan) ever sees them.
+    static func dropInheritedAgentMarkers() {
+        for (key, value) in ProcessInfo.processInfo.environment where isInheritedAgentMarker(key, value: value) { unsetenv(key) }
+    }
+
     static func load() -> [String: String] {
         if let cached = cache.get() { return cached }
         var env = ProcessInfo.processInfo.environment

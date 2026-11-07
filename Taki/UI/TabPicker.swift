@@ -5,7 +5,7 @@ struct TabGlyph: View {
     let tab: TerminalTab
     var size: CGFloat = 12
     var body: some View {
-        Image(systemName: tab.isClaude ? "asterisk" : tab.isCodex ? "apple.terminal" : "terminal")
+        Image(systemName: tab.isClaude ? "asterisk" : tab.kind == .shell ? "terminal" : "apple.terminal")
             .font(.system(size: size, weight: .semibold))
             .foregroundStyle(tab.isClaude ? Theme.claude : Theme.secondary)
             .frame(width: size + 4)
