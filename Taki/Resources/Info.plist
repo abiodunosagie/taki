@@ -30,10 +30,6 @@
 	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>Taki brings the exact Terminal or iTerm tab where an agent is running to the front when you click Open.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Hold Right Option in a terminal to dictate: Taki listens while you hold it and types what you said. Speech is recognized on this Mac.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>Taki turns what you dictate in a terminal into text, on this Mac.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright 2026 Abiodun Osagie</string>
 </dict>

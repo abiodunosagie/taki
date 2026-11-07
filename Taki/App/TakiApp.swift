@@ -56,7 +56,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ note: Notification) {
         Appearance.apply()
         TakiTerminalView.installShiftReturn()
-        PushToTalk.shared.install()
         DispatchQueue.global(qos: .utility).async {
             TakiTerminalView.pruneDroppedImages()
             _ = AgentCLI.installed()          // reads the login PATH once, off the main thread

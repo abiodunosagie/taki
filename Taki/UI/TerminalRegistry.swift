@@ -37,9 +37,6 @@ final class TerminalRegistry {
         return v
     }
 
-    /// The tab's terminal if it has been opened (for dictation and other input from the toolbar).
-    func existingView(_ id: UUID) -> TakiTerminalView? { views[id] as? TakiTerminalView }
-
     func remove(_ id: UUID) {
         views[id]?.terminate()
         views[id] = nil
