@@ -10,6 +10,8 @@ struct SettingsView: View {
     @AppStorage("notifyServers") private var notifyServers = true
     @AppStorage("notifyLimits") private var notifyLimits = true
     @AppStorage("notifyOverlaps") private var notifyOverlaps = true
+    @AppStorage("notifyWaiting") private var notifyWaiting = true
+    @AppStorage("notifyFinished") private var notifyFinished = true
     @AppStorage("appearance") private var appearance = "system"
     @AppStorage("shortLinks") private var shortLinks = true
     @State private var loginItem = SMAppService.mainApp.status == .enabled

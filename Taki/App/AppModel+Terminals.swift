@@ -10,6 +10,7 @@ extension AppModel {
             section = .terminals
             return
         }
+        tabLimitReached = false
         let tab = TerminalTab(title: title ?? TabKind(command: command).title(for: (folder as NSString).lastPathComponent),
                               folder: folder, command: command)
         if let i = terminals.firstIndex(where: { $0.id == selectedTerminal }) {
@@ -40,6 +41,7 @@ extension AppModel {
     /// The same kind of tab in the same folder. A Claude tab starts a new conversation there.
     func duplicateTerminal(_ id: UUID) {
         guard let t = terminals.first(where: { $0.id == id }) else { return }
+        guard terminals.count < Edition.maxTerminals else { tabLimitReached = true; return }
         selectedTerminal = id
         newTerminal(t.kind, folder: TerminalRegistry.shared.currentFolder(of: id) ?? t.folder)
     }
@@ -115,6 +117,7 @@ extension AppModel {
         pendingClose.removeAll { $0 == id }                  // a tab that ended by itself leaves the question
         guard let i = terminals.firstIndex(where: { $0.id == id }) else { return }
         terminals.remove(at: i)
+        tabLimitReached = false                         // there is room again
         TerminalRegistry.shared.remove(id)
         busyTabs.remove(id)
         if selectedTerminal == id {

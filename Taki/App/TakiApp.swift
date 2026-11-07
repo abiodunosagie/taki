@@ -45,11 +45,17 @@ struct TakiApp: App {
 /// left click and a menu with Open and Quit on a right click.
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let model = AppModel()
+    let model: AppModel
+
+    override init() {
+        model = AppModel()
+        super.init()
+    }
 
     func applicationDidFinishLaunching(_ note: Notification) {
         Appearance.apply()
         signal(SIGPIPE, SIG_IGN)     // a chat that dies mid-write must not take Taki down with it
+        guard !TestHost.isActive else { return }
     }
 
 
@@ -67,7 +73,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard let warning = model.quitWarning else { return .terminateNow }
         let alert = NSAlert()
-        alert.messageText = "Quit Taki?"
+        alert.messageText = "Quit \(Edition.name)?"
         alert.informativeText = "You have \(warning). Quitting stops them."
         alert.addButton(withTitle: "Quit")
         alert.addButton(withTitle: "Cancel")

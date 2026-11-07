@@ -22,8 +22,8 @@ struct LiveAgent: Identifiable, Equatable, Sendable {
 
     enum SubtitleStyle { case full, compact, tree }
 
-    /// "Claude Code · working 42m" (compact), plus the host app, servers and folder (full), or the
-    /// menu bar tree line "In Terminal · Idle 2m · 7 servers" (tree).
+    /// "Claude Code · working 42m" (compact), plus the host app, servers and folder (full), or a
+    /// tree line "In Terminal · Idle 2m · 7 servers" (tree).
     func subtitle(style: SubtitleStyle) -> String {
         let since = Format.elapsed(since: statusSince)
         let state = status == .waiting ? "waiting for you" : "\(status.rawValue) \(since)"
@@ -85,7 +85,11 @@ enum AgentScanner {
                                  contextTokens: info.context,
                                  project: info.project ?? ProjectRoot.of(cwd)))
         }
-        return out.sorted { a, b in
+        // A session resumed while it still runs elsewhere leaves two session files with one id.
+        // Keep the newest, so every list and dictionary keyed by id sees each session once.
+        var newest: [String: LiveAgent] = [:]
+        for a in out where a.startedAt >= (newest[a.id]?.startedAt ?? .distantPast) { newest[a.id] = a }
+        return newest.values.sorted { a, b in
             if (a.status == .waiting) != (b.status == .waiting) { return a.status == .waiting }
             return a.startedAt > b.startedAt
         }

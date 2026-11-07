@@ -8,9 +8,9 @@ struct UpgradeCard: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text("Taki Pro").font(.system(size: 14, weight: .semibold))
                 Text("Chat with Claude, workspaces, the menu bar, unlimited tabs and more.")
-                    .font(.system(size: 12)).foregroundStyle(Theme.secondary)
+                    .font(.system(size: 13)).foregroundStyle(Theme.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("See Taki Pro").font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.link).padding(.top, 2)
+                Text("Learn more").font(.system(size: 13, weight: .medium)).foregroundStyle(Theme.link).padding(.top, 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(12)

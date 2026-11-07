@@ -51,6 +51,7 @@ final class AppModel {
 
     init() {
         displayTitles = Self.displayTitles(for: terminals)
+        guard !TestHost.isActive else { return }            // a test host starts nothing
         if Demo.isOn { apply(Demo.snapshot()); return }      // sample data, no scans, no proxy, nothing started
         poll()
         timer = Timer.scheduledTimer(withTimeInterval: Self.pollInterval, repeats: true) { [weak self] _ in
@@ -63,7 +64,8 @@ final class AppModel {
     @ObservationIgnored private var polling = false
 
     func poll() {
-        guard !paused, !polling, !Demo.isOn else { return }   // demo mode shows sample data, never the Mac          // one scan at a time, results never arrive out of order
+        // One scan at a time, so results never arrive out of order; demo mode never scans the Mac.
+        guard !paused, !polling, !Demo.isOn else { return }
         polling = true
         tick += 1
         let doUsage = tick % Self.usageEvery == 1
@@ -184,7 +186,7 @@ final class AppModel {
 
 }
 
-/// The last Claude plan limits seen, so the menu bar shows them before the next chat reports.
+/// The last Claude plan limits seen, so they show at launch before the next reading.
 enum LimitsStore {
     static func load() -> RateLimits? {
         guard let d = UserDefaults.standard.data(forKey: "claudeLimits") else { return nil }

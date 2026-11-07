@@ -1,8 +1,8 @@
 <img src="brand/banner.svg" alt="Taki: every coding agent on your Mac, in one place" width="100%">
 
 [![CI](https://github.com/abiodunosagie/taki/actions/workflows/ci.yml/badge.svg)](https://github.com/abiodunosagie/taki/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-3385FF.svg)](LICENSE)
-![macOS 26](https://img.shields.io/badge/macOS-26%2B-0F1B33.svg)
+[![License: MIT](https://img.shields.io/badge/license-MIT-E2452B.svg)](LICENSE)
+![macOS 26](https://img.shields.io/badge/macOS-26%2B-15161A.svg)
 
 Taki is a native Mac app for people who run several coding agents at once. It finds every Claude Code, Codex and Cursor session on the Mac, wherever it was started, shows what each one is doing and how full its context is, and lets you jump to it or stop it. Your Claude plan limits, token use and dev servers sit on the same screen, and two terminal tabs live right inside the app.
 

@@ -11,3 +11,10 @@ enum AppFiles {
         return dir
     }
 }
+
+/// True when the app is only the host for unit tests: then it starts nothing, scans nothing,
+/// imports nothing and writes none of the user's files.
+enum TestHost {
+    static let isActive = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+        || NSClassFromString("XCTestCase") != nil
+}

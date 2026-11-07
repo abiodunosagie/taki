@@ -14,6 +14,8 @@ struct UsageSnapshot: Equatable, Sendable {
     var sessionsPerHour: [Int] = Array(repeating: 0, count: 24)   // index 23 = the current hour
     var tokensPerHour: [Int] = Array(repeating: 0, count: 24)
     var sessions24h = 0
+    /// Claude tokens used today per project folder slug (the transcript's parent folder name).
+    var claudeTodayBySlug: [String: Int] = [:]
 
     var tokensToday: Int { claudeTokensToday + codexTokensToday }
 }
@@ -75,7 +77,11 @@ enum UsageScanner {
             for r in st.records where r.time >= weekStart {
                 if isCodex { snap.codexTokensWeek += r.tokens } else { snap.claudeTokensWeek += r.tokens }
                 if r.time >= dayStart {
-                    if isCodex { snap.codexTokensToday += r.tokens } else { snap.claudeTokensToday += r.tokens }
+                    if isCodex { snap.codexTokensToday += r.tokens } else {
+                        snap.claudeTokensToday += r.tokens
+                        let slug = URL(fileURLWithPath: path).deletingLastPathComponent().lastPathComponent
+                        snap.claudeTodayBySlug[slug, default: 0] += r.tokens
+                    }
                 }
                 if r.time >= windowStart {
                     let b = min(23, Int(r.time.timeIntervalSince(windowStart) / 3_600))
