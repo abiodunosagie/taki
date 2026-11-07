@@ -49,11 +49,11 @@ final class FileLinkTests: XCTestCase {
         addTeardownBlock { try? FileManager.default.removeItem(at: dir) }
         fm.createFile(atPath: dir.appending(path: "notes.md").path, contents: Data("x".utf8))
         fm.createFile(atPath: dir.appending(path: "setup.command").path, contents: Data("x".utf8))
-        fm.createFile(atPath: dir.appending(path: "run").path, contents: Data("x".utf8), attributes: [.posixPermissions: 0o755])
+        fm.createFile(atPath: dir.appending(path: "build.sh").path, contents: Data("x".utf8), attributes: [.posixPermissions: 0o755])
         XCTAssertTrue(FileLink.isPlainDocument(dir.appending(path: "notes.md").path))
+        XCTAssertTrue(FileLink.isPlainDocument(dir.appending(path: "build.sh").path))       // opens as text, never runs
         XCTAssertFalse(FileLink.isPlainDocument(dir.appending(path: "Evil.app").path))      // a bundle is a folder
-        XCTAssertFalse(FileLink.isPlainDocument(dir.appending(path: "setup.command").path)) // runs in Terminal
-        XCTAssertFalse(FileLink.isPlainDocument(dir.appending(path: "run").path))           // executable bit
+        XCTAssertFalse(FileLink.isPlainDocument(dir.appending(path: "setup.command").path)) // a launcher
         XCTAssertFalse(FileLink.isPlainDocument(dir.path))                                  // folders never
     }
 }

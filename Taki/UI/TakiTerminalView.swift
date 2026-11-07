@@ -110,12 +110,15 @@ final class TakiTerminalView: LocalProcessTerminalView {
 
     /// Shift-Return sends a line feed (the Ctrl-J that Claude Code, Codex and other agent CLIs
     /// read as "new line in the prompt"). A shell reads a line feed as Return, so nothing changes
-    /// there. Installed once for the app; it only acts on Taki's own terminals.
+    /// there. When the program has turned on the kitty keyboard protocol (Claude Code does),
+    /// SwiftTerm already reports Shift-Return exactly (CSI 13;2u), so the key is left to it.
+    /// Installed once for the app; it only acts on Taki's own terminals.
     @MainActor static func installShiftReturn() {
         guard shiftReturnMonitor == nil else { return }
         shiftReturnMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
             guard isShiftReturn(keyCode: event.keyCode, flags: event.modifierFlags),
-                  let view = event.window?.firstResponder as? TakiTerminalView else { return event }
+                  let view = event.window?.firstResponder as? TakiTerminalView,
+                  view.keyboardEnhancementFlags.isEmpty else { return event }
             view.send([0x0A])
             return nil
         }
@@ -137,9 +140,9 @@ struct FileLink: Equatable {
     let line: Int?
     let column: Int?
 
-    /// Nil for web links and for anything that is not a plain document on this Mac. Output is
-    /// untrusted (a cloned repo or an OSC 8 link can name any path), so folders, app bundles,
-    /// installers, scripts and executables never count: a click must never launch something.
+    /// Nil for web links and for anything that is not a regular file on this Mac. Output is
+    /// untrusted (a cloned repo or an OSC 8 link can name any path), so `open` never hands a file
+    /// to its default handler (see there); folders, bundles and installers never count at all.
     static func parse(_ text: String, cwd: String, isDocument: (String) -> Bool = FileLink.isPlainDocument) -> FileLink? {
         let raw = text.trimmingCharacters(in: .whitespacesAndNewlines)
         // As printed first (a Next.js route like app/[slug]/page.tsx keeps its brackets), then
@@ -169,17 +172,17 @@ struct FileLink: Equatable {
         return FileLink(path: clean, line: numbers.first, column: numbers.count > 1 ? numbers[1] : nil)
     }
 
-    /// Extensions macOS runs or installs when opened.
+    /// Bundles, installers and launchers: never something to edit, even in Xcode.
     static let launchable: Set<String> = ["app", "bundle", "framework", "xpc", "appex", "plugin", "kext", "prefpane",
-                                          "command", "terminal", "tool", "workflow", "action", "scpt", "scptd",
-                                          "applescript", "pkg", "mpkg", "dmg", "webloc", "inetloc", "url", "fileloc",
-                                          "sh", "zsh", "bash", "fish", "csh", "py", "rb", "pl", "jar", "mobileconfig"]
+                                          "pkg", "mpkg", "dmg", "command", "terminal", "tool", "workflow", "action",
+                                          "scpt", "scptd", "webloc", "inetloc", "fileloc", "mobileconfig"]
 
-    /// A regular file, not executable, with no launchable extension.
+    /// A regular file (no folder or package) without a launcher extension. Scripts such as
+    /// build.sh or main.py stay openable: they open as text in the editor, never run.
     static func isPlainDocument(_ path: String) -> Bool {
-        let fm = FileManager.default
-        guard let type = try? fm.attributesOfItem(atPath: path)[.type] as? FileAttributeType, type == .typeRegular else { return false }
-        return !fm.isExecutableFile(atPath: path) && !launchable.contains((path as NSString).pathExtension.lowercased())
+        guard let type = try? FileManager.default.attributesOfItem(atPath: path)[.type] as? FileAttributeType,
+              type == .typeRegular else { return false }
+        return !launchable.contains((path as NSString).pathExtension.lowercased())
     }
 
     /// The editor's own "open at line" link when it has one; nil for editors without one.
