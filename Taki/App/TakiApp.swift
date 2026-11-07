@@ -6,7 +6,7 @@ struct TakiApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate
 
     var body: some Scene {
-        Window("Taki", id: "main") {
+        Window(Edition.name, id: "main") {
             MainView()
                 .environment(delegate.model)
                 .frame(minWidth: 1180, minHeight: 720)

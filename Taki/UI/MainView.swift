@@ -119,6 +119,19 @@ struct Sidebar: View {
         .padding(.horizontal, 10)
         .padding(.bottom, 10)
         .font(.system(size: 15))
+        .overlay(alignment: .topTrailing) { editionName }
+    }
+
+    /// "Taki Pro" (or "Taki") beside the window buttons, so the window says which edition it is.
+    private var editionName: some View {
+        Text(Edition.name)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(Theme.secondary)
+            .frame(height: WindowChrome.buttonHalfHeight * 2)
+            .padding(.top, WindowChrome.bandHeight / 2 - MainView.panelInset - WindowChrome.buttonHalfHeight)
+            .padding(.trailing, 16)
+            .allowsHitTesting(false)
+            .accessibilityAddTraits(.isHeader)
     }
 
     private func open(port: Int) {
