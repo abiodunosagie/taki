@@ -7,7 +7,7 @@ options:
 settings:
   base:
     # To build your own copy, change these two lines: your team ID and your reverse-DNS prefix.
-    DEVELOPMENT_TEAM: R87873B42W
+    DEVELOPMENT_TEAM: 6989F7G8CN
     TAKI_BUNDLE_PREFIX: com.abiodunosagie
     TAKI_APP_GROUP: $(DEVELOPMENT_TEAM).$(TAKI_BUNDLE_PREFIX).Taki
     CODE_SIGN_STYLE: Automatic
