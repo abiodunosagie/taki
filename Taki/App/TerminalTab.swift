@@ -2,10 +2,21 @@ import Foundation
 
 /// The other coding-agent CLIs a tab can start. Each runs its own binary with no arguments;
 /// the menus offer only the ones installed on this Mac.
+/// `resumeLatest` reopens the folder's latest session after a relaunch, from each CLI's own
+/// `--help` (2026-11): Gemini `--resume latest`, opencode `--continue`. The rest have no
+/// verified flag and start fresh.
 enum AgentCLI: String, CaseIterable {
     case gemini, opencode, qwen, amp, crush, copilot, droid, cursorAgent = "cursor-agent", goose, aider
 
     var binary: String { rawValue }
+
+    var resumeLatest: String? {
+        switch self {
+        case .gemini: "--resume latest"
+        case .opencode: "--continue"
+        case .qwen, .amp, .crush, .copilot, .droid, .cursorAgent, .goose, .aider: nil
+        }
+    }
 
     var name: String {
         switch self {
@@ -129,8 +140,9 @@ struct TerminalTab: Identifiable, Equatable, Codable {
     }
 }
 
-/// Saves the open terminal tabs. On the next launch shells reopen in the same folder and Claude
-/// tabs pick up their own session (`claude --resume <id>`), or their folder's latest one.
+/// Saves the open terminal tabs. On the next launch shells reopen in the same folder, Claude tabs
+/// pick up their own session (`claude --resume <id>`) or their folder's latest one, Codex tabs
+/// their folder's latest Codex session, and Gemini and opencode tabs their latest too.
 enum TerminalStore {
     static var url: URL { AppFiles.folder.appending(path: "terminals.json") }
 
@@ -142,8 +154,9 @@ enum TerminalStore {
     /// The command each restored tab runs comes only from its kind, never from the file. A folder
     /// that is gone opens in the home folder. Each Claude session is resumed in one tab only, and
     /// `--continue` (the folder's latest session) is used once per folder, by a tab with no session.
-    static func restore(_ saved: [TerminalTab]) -> [TerminalTab] {
+    static func restore(_ saved: [TerminalTab], codexLatest: (String) -> String? = { CodexSessions.latest(in: $0) }) -> [TerminalTab] {
         var resumedSessions = Set<String>()
+        var resumedAgents = Set<String>()        // "<kind> <folder>": one tab per folder picks up its latest
         var claimedFolders = Set(saved.filter { $0.isClaude && $0.sessionID.map { AgentScanner.isSessionID($0) } == true }.map(\.folder))
         return saved.map { t in
             var t = t
@@ -153,9 +166,20 @@ enum TerminalStore {
             case .shell:
                 t.command = nil
                 t.sessionID = nil
-            case .codex, .agent:
-                t.command = t.kind.command
+            case .codex:
                 t.sessionID = nil
+                if resumedAgents.insert("codex \(t.folder)").inserted, let id = codexLatest(t.folder) {
+                    t.command = "codex resume \(id)"     // a UUID read from Codex's own file, checked in parse
+                } else {
+                    t.command = "codex"
+                }
+            case let .agent(a):
+                t.sessionID = nil
+                if let flags = a.resumeLatest, resumedAgents.insert("\(a.binary) \(t.folder)").inserted {
+                    t.command = "\(a.binary) \(flags)"
+                } else {
+                    t.command = a.binary
+                }
             case .claude:
                 if let sid = t.sessionID, AgentScanner.isSessionID(sid), resumedSessions.insert(sid).inserted {
                     t.command = "claude --resume \(sid)"

@@ -47,7 +47,7 @@ struct SettingsView: View {
                             }
                         }
                         Card(Edition.name, fill: false) {
-                            row("Open at login", "No account and no analytics. Nothing leaves this Mac.") {
+                            row("Open at login", Self.privacyNote) {
                                 Toggle("", isOn: $loginItem).labelsHidden().toggleStyle(.switch).tint(Theme.live)
                                     .onChange(of: loginItem) { _, on in
                                         do { on ? try SMAppService.mainApp.register() : try SMAppService.mainApp.unregister() }
@@ -69,6 +69,8 @@ struct SettingsView: View {
         }
         .scrollEdgeEffectStyle(.soft, for: .top)
     }
+
+    static let privacyNote = "No account and no analytics. Nothing leaves this Mac."
 
     private var divider: some View { Divider().opacity(0.35) }
 

@@ -39,7 +39,7 @@ final class AppModel {
     /// SwiftUI's openWindow, captured by the first view that appears (the menu panel or a window).
     @ObservationIgnored var openMainWindow: (() -> Void)?
     @ObservationIgnored private var timer: Timer?
-    @ObservationIgnored private var tick = 0
+    @ObservationIgnored private(set) var tick = 0
     @ObservationIgnored var terminalSave: DispatchWorkItem?
 
     /// Seconds between polls, and how many polls apart the heavier scans run.
@@ -106,6 +106,8 @@ final class AppModel {
     }
 
     private(set) var checkingLimits = false
+    /// When the limits were last read, so background checks stay at most one per 15 minutes.
+    @ObservationIgnored var limitsCheckedAt: Date?
 
     /// Reads the Claude plan limits on demand: one tiny Haiku request through Claude Code, whose
     /// stream reports the 5-hour and weekly windows. Any Taki chat also updates them for free.
@@ -145,6 +147,7 @@ final class AppModel {
 
     func update(limits new: RateLimits) {
         limits = new
+        limitsCheckedAt = Date()
         LimitsStore.save(new)
     }
 

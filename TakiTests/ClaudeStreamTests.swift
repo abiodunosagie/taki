@@ -128,7 +128,7 @@ final class ScaleAndEdgeTests: XCTestCase {
             tab("claude", sid: sid),
             tab("claude", sid: sid),                         // the same session is resumed once only
             tab(nil, "/no/such/folder"),
-        ])
+        ], codexLatest: { _ in nil })
         XCTAssertEqual(out.map(\.command), ["claude", nil, "codex", "claude --resume \(sid)", "claude", nil])
         XCTAssertEqual(out[5].folder, home)
         // With no session saved, the folder's latest conversation continues in the first tab only.

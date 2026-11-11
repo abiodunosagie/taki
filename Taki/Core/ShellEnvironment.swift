@@ -66,14 +66,16 @@ enum ShellEnvironment {
     /// Runs a short command; stdout and the exit status, or nil when it fails to start. With a
     /// `timeout` the command is stopped when it takes longer (a hung daemon never blocks the caller).
     static func runWithStatus(_ launchPath: String, _ args: [String], cwd: String? = nil,
-                              timeout: TimeInterval? = nil) -> (out: Data, status: Int32)? {
+                              timeout: TimeInterval? = nil, environment: [String: String]? = nil,
+                              includeStderr: Bool = false) -> (out: Data, status: Int32)? {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: launchPath)
         p.arguments = args
+        if let environment { p.environment = environment }
         if let cwd { p.currentDirectoryURL = URL(fileURLWithPath: cwd) }
         let out = Pipe()
         p.standardOutput = out
-        p.standardError = FileHandle.nullDevice
+        p.standardError = includeStderr ? out : FileHandle.nullDevice
         do { try p.run() } catch { return nil }
         let watchdog = timeout.map { limit in
             let item = DispatchWorkItem { if p.isRunning { p.terminate() } }

@@ -10,6 +10,10 @@ struct MainView: View {
     static let panelInset: CGFloat = 8
 
     var body: some View {
+        window
+    }
+
+    private var window: some View {
         HStack(spacing: 0) {
             Sidebar()
                 .frame(width: 252)

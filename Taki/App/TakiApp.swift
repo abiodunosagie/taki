@@ -35,9 +35,16 @@ struct TakiApp: App {
         }
 
         Settings {
-            SettingsView().environment(delegate.model).frame(width: 860, height: 560)
+            settings.frame(width: 860, height: 560)
                 .background(LinearGradient(colors: [Theme.windowTop, Theme.windowBottom], startPoint: .top, endPoint: .bottom))
         }
+    }
+}
+
+extension TakiApp {
+    /// The Settings window's content.
+    @ViewBuilder var settings: some View {
+        SettingsView().environment(delegate.model)
     }
 }
 
